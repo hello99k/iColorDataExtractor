@@ -181,8 +181,8 @@ st.markdown("""
     /* --- 3. Undo/Clear Buttons Alignment --- */
     /* Target the buttons inside the column containing our .btn-align anchor */
     div[data-testid="column"]:has(.btn-align) div[data-testid="stButton"] > button {
-        height: 62px !important; 
-        min-height: 62px !important; /* Overrides Streamlit default min-height */
+        height: 100px !important; 
+        min-height: 100px !important; /* Overrides Streamlit default min-height */
         justify-content: flex-start !important; /* Pushes text to the left */
         padding-left: 24px !important; /* Adds padding so it doesn't hug the border */
         width: 100% !important;
