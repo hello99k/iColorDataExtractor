@@ -140,49 +140,56 @@ st.markdown("""
     }
 
     /* --- 2. Uploader Pixel-Perfect Centering --- */
-    /* Eliminate Streamlit's invisible wrapper margins */
     [data-testid="stFileUploader"] label {
         display: none !important;
     }
     
-    /* Lock the dropzone box to exactly 216px height to match two 100px buttons + 16px gap */
+    /* Lock the dropzone box to exactly 216px height */
     [data-testid="stFileUploaderDropzone"] {
         height: 216px !important; 
         min-height: 216px !important; 
-        padding: 0 !important;
         display: flex !important;
+        flex-direction: column !important;
         align-items: center !important;
         justify-content: center !important;
+        padding: 0 !important;
     }
     
-    /* Force inner content wrapper to center and stack vertically */
-    [data-testid="stFileUploaderDropzone"] > div {
+    /* Override Streamlit's inner layout layers to force vertical stacking */
+    [data-testid="stFileUploaderDropzone"] div, 
+    [data-testid="stFileUploaderDropzone"] span {
         display: flex !important;
         flex-direction: column !important;
         align-items: center !important;
         justify-content: center !important;
         width: 100% !important;
-        text-align: center !important;
-    }
-
-    /* Target the flavor text specifically to ensure it centers */
-    [data-testid="stFileUploaderDropzone"] small {
-        text-align: center !important;
-        line-height: 1 !important;
     }
     
-    /* Force the upload button to auto-margin horizontally just in case */
+    /* Exempt the button's internal structure so the icon and text remain side-by-side */
+    [data-testid="stFileUploaderDropzone"] button div, 
+    [data-testid="stFileUploaderDropzone"] button span {
+        display: flex !important;
+        flex-direction: row !important;
+        width: auto !important;
+    }
+
+    /* Force the button element into the dead center */
     [data-testid="stFileUploaderDropzone"] button {
-        margin: 0 auto !important;
+        align-self: center !important;
+        margin: 0 auto 12px auto !important;
+    }
+
+    [data-testid="stFileUploaderDropzone"] small {
+        text-align: center !important;
+        width: 100% !important;
     }
 
     /* --- 3. Undo/Clear Buttons Alignment --- */
-    /* Aggressive targeting: Grabs the 2nd column in the layout and forces button height */
     div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) div[data-testid="stButton"] button {
         height: 100px !important; 
         min-height: 100px !important; 
-        justify-content: flex-start !important; /* Pushes text to the left */
-        padding-left: 24px !important; /* Adds padding so it doesn't hug the border */
+        justify-content: flex-start !important; 
+        padding-left: 24px !important; 
         width: 100% !important;
         margin: 0 !important;
     }
