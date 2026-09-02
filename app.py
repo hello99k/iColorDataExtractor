@@ -122,30 +122,61 @@ def extract_data_from_image(image_bytes, start_wl, end_wl, interval):
 
 st.set_page_config(page_title="Spectra Batch Extractor", layout="wide")
 
-# Custom CSS for layout structuring and horizontal scrolling
+# Custom CSS for layout structuring
 st.markdown("""
     <style>
-    /* Forces columns into a horizontally scrolling row */
-    [data-testid="stHorizontalBlock"] {
+    /* --- 1. Scoped Horizontal Scrolling for Color Cards --- */
+    /* Only apply horizontal scroll to the row directly following this specific class */
+    .color-scroll-anchor + div[data-testid="stHorizontalBlock"] {
         overflow-x: auto;
         flex-wrap: nowrap;
         padding-bottom: 10px;
     }
-    /* Styles the color cards */
-    [data-testid="column"] {
+    .color-scroll-anchor + div[data-testid="stHorizontalBlock"] [data-testid="column"] {
         min-width: 140px !important;
         background-color: rgba(128, 128, 128, 0.05);
         padding: 10px;
         border-radius: 8px;
         text-align: center;
     }
-    /* UI Alignment: Matches Uploader height to the stacked buttons */
-    [data-testid="stFileUploader"] section {
-        min-height: 135px !important;
+
+    /* --- 2. Uploader Centering and Height Management --- */
+    /* Force uploader to 140px tall so it matches exactly the two buttons next to it */
+    [data-testid="stFileUploaderDropzone"] {
+        height: 140px !important;
+        min-height: 140px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 0 !important;
     }
-    .stButton > button {
-        height: 60px;
-        margin-top: 5px;
+    /* Target the inner wrapper to force everything to the center */
+    [data-testid="stFileUploaderDropzone"] > div {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        width: 100% !important;
+    }
+    /* Force the '200MB per file' text to center */
+    [data-testid="stFileUploaderDropzone"] small {
+        text-align: center !important;
+        width: 100% !important;
+    }
+    /* Eliminate Streamlit's invisible uploader label so tops align perfectly */
+    [data-testid="stFileUploader"] label {
+        display: none !important;
+    }
+
+    /* --- 3. Side Buttons (Undo/Clear) Alignment --- */
+    /* Target buttons in the column containing the .btn-align class */
+    [data-testid="column"]:has(.btn-align) .stButton > button {
+        height: 62px !important; /* 62 + 16 gap + 62 = 140px */
+        justify-content: flex-start !important; 
+        padding-left: 24px !important; 
+        width: 100% !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -166,6 +197,7 @@ with st.expander("⚙️ Optical Text Search Parameters (Advanced)"):
         interval_wl = st.number_input("Interval (nm)", value=10, step=5)
 
 # --- Upload & Queue Management Row ---
+# 3/4 of the screen width for upload, 1/4 for buttons
 col_upload, col_buttons = st.columns([3, 1])
 
 with col_upload:
@@ -179,6 +211,8 @@ with col_upload:
     )
 
 with col_buttons:
+    # This invisible element gives our CSS an anchor so we only modify THESE specific buttons
+    st.markdown('<div class="btn-align"></div>', unsafe_allow_html=True)
     st.button("↩️ Undo Last Upload", on_click=undo_last_upload, use_container_width=True)
     st.button("🗑️ Clear All", on_click=clear_all_uploads, use_container_width=True)
 
@@ -212,13 +246,14 @@ if st.session_state.batches:
                 if b_id not in ui_groups[color]['instances']:
                     ui_groups[color]['instances'][b_id] = all_files_in_instance
 
+    # Invisible anchor to apply the horizontal scrolling only to this specific section
+    st.markdown('<div class="color-scroll-anchor"></div>', unsafe_allow_html=True)
     if ui_groups:
         cols = st.columns(len(ui_groups))
         for idx, (color, data) in enumerate(ui_groups.items()):
             with cols[idx]:
                 st.markdown(f"**{color}**")
                 
-                # Popover button (tally of relevant materials)
                 with st.popover(f"{len(data['relevant'])} materials"):
                     st.write(f"**Relevant '{color}' Files:**")
                     for rf in sorted(data['relevant']):
@@ -283,7 +318,6 @@ if st.session_state.batches:
             else:
                 st.success(f"Successfully extracted data from {processed_count} files. Ignored {skipped_count} irrelevant files.")
                 
-                # Generate Excel file in memory and store in session_state
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
                     for color, dfs in color_groups.items():
@@ -300,13 +334,10 @@ if st.session_state.batches:
     # Reveal filename input and download button AFTER processing is complete
     if st.session_state.is_processed and st.session_state.excel_data:
         st.write("---")
-        # Default name generated from parsed colors
         default_filename = ", ".join(ui_groups.keys())
         
-        # User entry box for the file name
         user_filename = st.text_input("📝 Enter a name for your compiled Excel file:", value=default_filename)
         
-        # Ensure it ends with .xlsx
         final_filename = user_filename.strip()
         if not final_filename.endswith(".xlsx"):
             final_filename += ".xlsx"
