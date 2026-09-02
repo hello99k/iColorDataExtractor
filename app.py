@@ -145,10 +145,10 @@ st.markdown("""
         display: none !important;
     }
     
-    /* Lock the dropzone box to exactly 140px height */
+    /* Lock the dropzone box to exactly 216px height to match two 100px buttons + 16px gap */
     [data-testid="stFileUploaderDropzone"] {
-        height: 140px !important;
-        min-height: 140px !important;
+        height: 216px !important; 
+        min-height: 216px !important; 
         padding: 0 !important;
         display: flex !important;
         align-items: center !important;
@@ -161,10 +161,9 @@ st.markdown("""
         flex-direction: column !important;
         align-items: center !important;
         justify-content: center !important;
-        gap: 12px !important; /* Space between upload button and subtext */
-        margin: 0 !important;
+        gap: 12px !important; 
+        margin: 0 auto !important; /* Guarantees true horizontal centering */
         padding: 0 !important;
-        width: 100% !important;
     }
 
     /* Strip all residual margins from children elements */
@@ -179,10 +178,10 @@ st.markdown("""
     }
 
     /* --- 3. Undo/Clear Buttons Alignment --- */
-    /* Target the buttons inside the column containing our .btn-align anchor */
-    div[data-testid="column"]:has(.btn-align) div[data-testid="stButton"] > button {
+    /* Aggressive targeting: Grabs the 2nd column in the layout and forces button height */
+    div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) div[data-testid="stButton"] button {
         height: 100px !important; 
-        min-height: 100px !important; /* Overrides Streamlit default min-height */
+        min-height: 100px !important; 
         justify-content: flex-start !important; /* Pushes text to the left */
         padding-left: 24px !important; /* Adds padding so it doesn't hug the border */
         width: 100% !important;
@@ -220,8 +219,6 @@ with col_upload:
     )
 
 with col_buttons:
-    # Invisible anchor to apply exact CSS sizing strictly to these two buttons
-    st.markdown('<div class="btn-align"></div>', unsafe_allow_html=True)
     st.button("↩️ Undo Last Upload", on_click=undo_last_upload, use_container_width=True)
     st.button("🗑️ Clear All", on_click=clear_all_uploads, use_container_width=True)
 
