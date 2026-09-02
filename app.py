@@ -6,10 +6,7 @@ import numpy as np
 import re
 import io
 
-# IMPORTANT: Point this to your Tesseract installation path if running locally on Windows.
-# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-
-def extract_data_from_image(image_bytes):
+def extract_data_from_image(image_bytes, start_wl, end_wl, interval):
     """Decodes uploaded image bytes, pre-processes for OCR, and extracts the WL and %R/%T table."""
     file_bytes = np.asarray(bytearray(image_bytes.read()), dtype=np.uint8)
     img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
@@ -31,22 +28,22 @@ def extract_data_from_image(image_bytes):
     custom_config = r'--oem 3 --psm 6'
     text = pytesseract.image_to_string(left_panel, config=custom_config)
     
-    # 4. Pre-fill a dictionary with the exact expected wavelengths (360 to 750 in 10nm steps)
-    expected_wls = list(range(360, 760, 10))
+    # 4. Generate the expected wavelengths dynamically based on user input
+    # We add the interval to the end_wl to ensure the `range` includes the final number
+    expected_wls = list(range(start_wl, end_wl + 1, interval))
     data_dict = {wl: None for wl in expected_wls}
     
-    # 5. Extract values using a targeted Regular Expression
+    # 5. Extract values using a generalized Regular Expression
     for line in text.split('\n'):
-        # Looks for valid wavelengths (360-750), ignores stray OCR characters, grabs the decimal value
-        match = re.search(r'(3[6-9]0|[4-7]\d0)\s*[^\d]*(\d+[\.,]\d+|\d+)', line.strip())
+        # Matches any 3 or 4 digit number (Wavelength) followed by a decimal or whole number
+        match = re.search(r'(\d{3,4})\s*[^\d]*(\d+[\.,]\d+|\d+)', line.strip())
         if match:
             wl = int(match.group(1))
             # Handle instances where OCR reads a comma instead of a decimal point
             raw_val = match.group(2).replace(',', '.')
             val = float(raw_val)
             
-            # Failsafe: If OCR still misses the decimal and reads "344" instead of "3.44"
-            # Assuming reflectance values here shouldn't naturally be > 100 for your materials
+            # Failsafe: If OCR still misses the decimal (e.g., reads "344" instead of "3.44")
             if val > 100:
                 val = val / 100
                 
@@ -65,6 +62,17 @@ st.title("Spectra Screenshot Extractor")
 st.write("Upload standardized screenshots (e.g., `Black Band.png`, `Black XE.png`). The app will extract the Wavelength tables via OCR and combine them into a single Excel file.")
 
 uploaded_files = st.file_uploader("Upload Screenshots", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
+
+# Add an expandable options tab for WL parameters
+with st.expander("⚙️ Wavelength Options (Advanced)"):
+    st.write("Adjust the expected wavelength range and interval if it differs from the iColor defaults.")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        start_wl = st.number_input("Start WL (nm)", value=360, step=10)
+    with col2:
+        end_wl = st.number_input("End WL (nm)", value=750, step=10)
+    with col3:
+        interval_wl = st.number_input("Interval (nm)", value=10, step=5)
 
 if uploaded_files:
     if st.button("Process Images"):
@@ -85,8 +93,8 @@ if uploaded_files:
                 material = parts[1].strip()
                 col_name = 'Band' if material.lower() == 'band' else f'Housing ({material})'
                 
-                # Extract data
-                df = extract_data_from_image(uploaded_file)
+                # Extract data using the custom WL parameters
+                df = extract_data_from_image(uploaded_file, start_wl, end_wl, interval_wl)
                 
                 if df.empty:
                     st.error(f"No table data found in `{filename}`. Check image quality.")
