@@ -122,11 +122,10 @@ def extract_data_from_image(image_bytes, start_wl, end_wl, interval):
 
 st.set_page_config(page_title="Spectra Batch Extractor", layout="wide")
 
-# Custom CSS for layout structuring
+# Custom CSS for rigid layout alignment
 st.markdown("""
     <style>
-    /* --- 1. Scoped Horizontal Scrolling for Color Cards --- */
-    /* Only apply horizontal scroll to the row directly following this specific class */
+    /* --- 1. Horizontal Scroll for Queued Colors --- */
     .color-scroll-anchor + div[data-testid="stHorizontalBlock"] {
         overflow-x: auto;
         flex-wrap: nowrap;
@@ -140,43 +139,54 @@ st.markdown("""
         text-align: center;
     }
 
-    /* --- 2. Uploader Centering and Height Management --- */
-    /* Force uploader to 140px tall so it matches exactly the two buttons next to it */
+    /* --- 2. Uploader Pixel-Perfect Centering --- */
+    /* Eliminate Streamlit's invisible wrapper margins */
+    [data-testid="stFileUploader"] label {
+        display: none !important;
+    }
+    
+    /* Lock the dropzone box to exactly 140px height */
     [data-testid="stFileUploaderDropzone"] {
         height: 140px !important;
         min-height: 140px !important;
+        padding: 0 !important;
         display: flex !important;
-        flex-direction: column !important;
         align-items: center !important;
         justify-content: center !important;
-        padding: 0 !important;
     }
-    /* Target the inner wrapper to force everything to the center */
+    
+    /* Force inner content wrapper to center and stack vertically */
     [data-testid="stFileUploaderDropzone"] > div {
         display: flex !important;
         flex-direction: column !important;
         align-items: center !important;
         justify-content: center !important;
-        text-align: center !important;
+        gap: 12px !important; /* Space between upload button and subtext */
+        margin: 0 !important;
+        padding: 0 !important;
         width: 100% !important;
-    }
-    /* Force the '200MB per file' text to center */
-    [data-testid="stFileUploaderDropzone"] small {
-        text-align: center !important;
-        width: 100% !important;
-    }
-    /* Eliminate Streamlit's invisible uploader label so tops align perfectly */
-    [data-testid="stFileUploader"] label {
-        display: none !important;
     }
 
-    /* --- 3. Side Buttons (Undo/Clear) Alignment --- */
-    /* Target buttons in the column containing the .btn-align class */
-    [data-testid="column"]:has(.btn-align) .stButton > button {
-        height: 62px !important; /* 62 + 16 gap + 62 = 140px */
-        justify-content: flex-start !important; 
-        padding-left: 24px !important; 
+    /* Strip all residual margins from children elements */
+    [data-testid="stFileUploaderDropzone"] > div > * {
+        margin: 0 !important;
+    }
+
+    /* Target the flavor text specifically to ensure it centers */
+    [data-testid="stFileUploaderDropzone"] small {
+        text-align: center !important;
+        line-height: 1 !important;
+    }
+
+    /* --- 3. Undo/Clear Buttons Alignment --- */
+    /* Target the buttons inside the column containing our .btn-align anchor */
+    div[data-testid="column"]:has(.btn-align) div[data-testid="stButton"] > button {
+        height: 62px !important; 
+        min-height: 62px !important; /* Overrides Streamlit default min-height */
+        justify-content: flex-start !important; /* Pushes text to the left */
+        padding-left: 24px !important; /* Adds padding so it doesn't hug the border */
         width: 100% !important;
+        margin: 0 !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -197,7 +207,6 @@ with st.expander("⚙️ Optical Text Search Parameters (Advanced)"):
         interval_wl = st.number_input("Interval (nm)", value=10, step=5)
 
 # --- Upload & Queue Management Row ---
-# 3/4 of the screen width for upload, 1/4 for buttons
 col_upload, col_buttons = st.columns([3, 1])
 
 with col_upload:
@@ -211,7 +220,7 @@ with col_upload:
     )
 
 with col_buttons:
-    # This invisible element gives our CSS an anchor so we only modify THESE specific buttons
+    # Invisible anchor to apply exact CSS sizing strictly to these two buttons
     st.markdown('<div class="btn-align"></div>', unsafe_allow_html=True)
     st.button("↩️ Undo Last Upload", on_click=undo_last_upload, use_container_width=True)
     st.button("🗑️ Clear All", on_click=clear_all_uploads, use_container_width=True)
@@ -246,7 +255,6 @@ if st.session_state.batches:
                 if b_id not in ui_groups[color]['instances']:
                     ui_groups[color]['instances'][b_id] = all_files_in_instance
 
-    # Invisible anchor to apply the horizontal scrolling only to this specific section
     st.markdown('<div class="color-scroll-anchor"></div>', unsafe_allow_html=True)
     if ui_groups:
         cols = st.columns(len(ui_groups))
