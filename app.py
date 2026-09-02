@@ -10,8 +10,7 @@ import io
 # pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 def extract_data_from_image(image_bytes):
-    """Decodes uploaded image bytes and extracts the WL and %R/%T table."""
-    # Convert Streamlit uploaded bytes to OpenCV image
+    """Decodes uploaded image bytes, pre-processes for OCR, and extracts the WL and %R/%T table."""
     file_bytes = np.asarray(bytearray(image_bytes.read()), dtype=np.uint8)
     img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
     
@@ -20,22 +19,44 @@ def extract_data_from_image(image_bytes):
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
-    # Crop to the left panel to isolate the table
+    # 1. Tighter crop based on the iColor layout (left ~10%)
     height, width = gray.shape
-    left_panel = gray[:, :int(width * 0.12)] 
+    left_panel = gray[:, :int(width * 0.10)] 
+    
+    # 2. Upscale 3x and apply binarization (Otsu's Threshold) to make decimal points crystal clear
+    left_panel = cv2.resize(left_panel, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
+    _, left_panel = cv2.threshold(left_panel, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
 
+    # 3. Run OCR with Page Segmentation Mode 6
     custom_config = r'--oem 3 --psm 6'
     text = pytesseract.image_to_string(left_panel, config=custom_config)
     
-    data = []
+    # 4. Pre-fill a dictionary with the exact expected wavelengths (360 to 750 in 10nm steps)
+    expected_wls = list(range(360, 760, 10))
+    data_dict = {wl: None for wl in expected_wls}
+    
+    # 5. Extract values using a targeted Regular Expression
     for line in text.split('\n'):
-        match = re.search(r'^(\d{3})\s+([\d\.]+)', line.strip())
+        # Looks for valid wavelengths (360-750), ignores stray OCR characters, grabs the decimal value
+        match = re.search(r'(3[6-9]0|[4-7]\d0)\s*[^\d]*(\d+[\.,]\d+|\d+)', line.strip())
         if match:
             wl = int(match.group(1))
-            val = float(match.group(2))
-            data.append({'WL (nm)': wl, 'Value': val})
+            # Handle instances where OCR reads a comma instead of a decimal point
+            raw_val = match.group(2).replace(',', '.')
+            val = float(raw_val)
             
-    return pd.DataFrame(data).drop_duplicates(subset=['WL (nm)'])
+            # Failsafe: If OCR still misses the decimal and reads "344" instead of "3.44"
+            # Assuming reflectance values here shouldn't naturally be > 100 for your materials
+            if val > 100:
+                val = val / 100
+                
+            if wl in data_dict:
+                data_dict[wl] = val
+                
+    # 6. Build the final DataFrame, keeping only the rows where data was successfully found
+    df = pd.DataFrame([{'WL (nm)': k, 'Value': v} for k, v in data_dict.items() if v is not None])
+    
+    return df
 
 # --- Streamlit UI ---
 
