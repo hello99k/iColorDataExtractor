@@ -9,11 +9,12 @@ import zipfile
 import os
 
 # --- Session State Management ---
-# We use this to track files in the background so we can clear/undo specific batches
 if "batches" not in st.session_state:
-    st.session_state.batches = []
+    st.session_state.batches = []  # Will store lists of files tagged with a batch_id
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
+if "batch_counter" not in st.session_state:
+    st.session_state.batch_counter = 1
 
 def handle_upload():
     """Callback to process files immediately when uploaded and queue them."""
@@ -30,10 +31,8 @@ def handle_upload():
             try:
                 with zipfile.ZipFile(f, 'r') as zip_ref:
                     for zip_info in zip_ref.infolist():
-                        # Ignore directories and hidden macOS files
                         if zip_info.is_dir() or zip_info.filename.startswith('__MACOSX') or os.path.basename(zip_info.filename).startswith('.'):
                             continue
-                        # Extract images from inside the zip
                         if zip_info.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
                             current_batch.append({
                                 'name': os.path.basename(zip_info.filename),
@@ -48,23 +47,29 @@ def handle_upload():
                 'bytes': f.getvalue()
             })
     
-    # Save this upload instance as a distinct series
+    # Save this upload instance as a distinct series with a batch ID
     if current_batch:
-        st.session_state.batches.append(current_batch)
+        st.session_state.batches.append({
+            'batch_id': st.session_state.batch_counter,
+            'files': current_batch
+        })
+        st.session_state.batch_counter += 1
         
-    # Increment the key to visually reset the uploader box for the next drag-and-drop
     st.session_state.uploader_key += 1
 
 def undo_last_upload():
     if st.session_state.batches:
         st.session_state.batches.pop()
+        # Reset counter if empty
+        if not st.session_state.batches:
+            st.session_state.batch_counter = 1
 
 def clear_all_uploads():
     st.session_state.batches.clear()
+    st.session_state.batch_counter = 1
 
 def extract_data_from_image(image_bytes, start_wl, end_wl, interval):
     """Decodes image, validates it is a spectra screenshot, and extracts the table."""
-    # Modified to accept raw bytes from our session state list
     file_bytes = np.asarray(bytearray(image_bytes), dtype=np.uint8)
     img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
     
@@ -108,15 +113,32 @@ def extract_data_from_image(image_bytes, start_wl, end_wl, interval):
 # --- Streamlit UI ---
 
 st.set_page_config(page_title="Spectra Batch Extractor", layout="wide")
+
+# CSS to enable horizontal scrolling for Streamlit columns
+st.markdown("""
+    <style>
+    [data-testid="stHorizontalBlock"] {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding-bottom: 10px;
+    }
+    [data-testid="column"] {
+        min-width: 140px !important;
+        background-color: rgba(128, 128, 128, 0.05);
+        padding: 10px;
+        border-radius: 8px;
+        text-align: center;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 st.title("Spectra Batch Extractor")
 st.write("""
 **Instructions:**
 1. Drag and drop **folders, images, or .zip files** into the uploader below.
 2. The app will capture the files and immediately clear the box so you can upload more.
-3. Use the Undo/Clear buttons if you accidentally upload the wrong folder.
 """)
 
-# File Uploader triggers the background saving process automatically
 st.file_uploader(
     "Upload Screenshots (Images, Folders, or ZIP files)", 
     type=["png", "jpg", "jpeg", "zip"], 
@@ -125,13 +147,62 @@ st.file_uploader(
     on_change=handle_upload
 )
 
-# Only show the queue management UI if there are files in the background queue
+# --- Visual Queue & Queue Management ---
 if st.session_state.batches:
-    total_files = sum(len(batch) for batch in st.session_state.batches)
-    total_batches = len(st.session_state.batches)
+    st.write("---")
     
-    st.info(f"📁 **Current Queue:** {total_files} files queued across {total_batches} upload event(s).")
-    
+    # 1. Parse current queue to group by Color
+    ui_groups = {}
+    total_files = 0
+    for batch in st.session_state.batches:
+        b_id = batch['batch_id']
+        # List of all raw file names in this specific instance
+        all_files_in_instance = [f['name'] for f in batch['files']]
+        total_files += len(batch['files'])
+        
+        for f in batch['files']:
+            name = f['name']
+            name_without_ext = name.rsplit('.', 1)[0]
+            parts = name_without_ext.split(' ', 1)
+            
+            # If it matches our naming convention, categorize it for the UI
+            if len(parts) >= 2:
+                color = parts[0].strip()
+                if color not in ui_groups:
+                    ui_groups[color] = {'relevant': set(), 'instances': {}}
+                
+                ui_groups[color]['relevant'].add(name)
+                
+                # Keep track of which batch instance(s) this color appeared in
+                if b_id not in ui_groups[color]['instances']:
+                    ui_groups[color]['instances'][b_id] = all_files_in_instance
+
+    # 2. Display Horizontal Scrolling List of Colors
+    st.subheader("🎨 Queued Colors Overview")
+    if ui_groups:
+        cols = st.columns(len(ui_groups))
+        for idx, (color, data) in enumerate(ui_groups.items()):
+            with cols[idx]:
+                st.markdown(f"**{color}**")
+                
+                # Popover button (tally of relevant files)
+                with st.popover(f"🖼️ {len(data['relevant'])} files"):
+                    st.write(f"**Relevant '{color}' Files:**")
+                    for rf in sorted(data['relevant']):
+                        st.write(f"- `{rf}`")
+                    
+                    st.divider()
+                    
+                    # Small text for upload instances
+                    st.caption("📦 **Full Instance Upload History:**")
+                    for b_id, all_files in data['instances'].items():
+                        st.caption(f"**Instance {b_id}:** {', '.join(all_files)}")
+    else:
+        st.info("No files matching the 'Color Material' format found in queue yet.")
+
+    # 3. Queue Management Buttons
+    st.write("")
+    st.info(f"📁 **Total Queue Size:** {total_files} files queued across {len(st.session_state.batches)} upload event(s).")
     col1, col2, col3, col4 = st.columns([1, 1, 2, 2])
     with col1:
         st.button("↩️ Undo Last Upload", on_click=undo_last_upload, use_container_width=True)
@@ -141,15 +212,15 @@ if st.session_state.batches:
 
 with st.expander("⚙️ Wavelength Options (Advanced)"):
     st.write("Adjust the expected wavelength range and interval if it differs from the defaults.")
-    col1, col2, col3 = st.columns(3)
-    with col1:
+    w_col1, w_col2, w_col3 = st.columns(3)
+    with w_col1:
         start_wl = st.number_input("Start WL (nm)", value=360, step=10)
-    with col2:
+    with w_col2:
         end_wl = st.number_input("End WL (nm)", value=750, step=10)
-    with col3:
+    with w_col3:
         interval_wl = st.number_input("Interval (nm)", value=10, step=5)
 
-# Process Button
+# --- Processing Execution ---
 if st.session_state.batches:
     st.write("---")
     if st.button("🚀 Process Batch Queue"):
@@ -158,8 +229,8 @@ if st.session_state.batches:
             processed_count = 0
             skipped_count = 0
             
-            # Flatten the batches into a single list of files for processing
-            all_files = [file for batch in st.session_state.batches for file in batch]
+            # Flatten batches into a single list of files
+            all_files = [file for batch in st.session_state.batches for file in batch['files']]
             progress_bar = st.progress(0)
             
             for index, file_data in enumerate(all_files):
@@ -179,7 +250,6 @@ if st.session_state.batches:
                 # Extract data and Validate
                 df, is_valid = extract_data_from_image(file_data['bytes'], start_wl, end_wl, interval_wl)
                 
-                # Check 2 & 3: Validation and Data check
                 if not is_valid or df.empty:
                     skipped_count += 1
                     continue
@@ -200,7 +270,6 @@ if st.session_state.batches:
             if not color_groups:
                 st.error("No valid spectra data could be extracted from the queue.")
             else:
-                # Generate Excel file in memory
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
                     for color, dfs in color_groups.items():
