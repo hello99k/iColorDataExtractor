@@ -143,14 +143,12 @@ st.markdown("""
         justify-content: center !important;
     }
     
-    /* Hide the original button entirely */
     [data-testid="stFileUploaderDropzone"] button,
     [data-testid="stFileUploaderDropzone"] svg,
     [data-testid="stFileUploaderDropzone"] > div > span {
         display: none !important;
     }
 
-    /* Inject 'Upload' as bold text with emoji directly in the center */
     [data-testid="stFileUploaderDropzone"] > div::before {
         content: "📤 Upload";
         font-weight: 600;
@@ -236,10 +234,8 @@ if st.session_state.batches:
                 if b_id not in ui_groups[color]['instances']:
                     ui_groups[color]['instances'][b_id] = all_files_in_instance
 
-    # Invisible anchor used by our Javascript to find the exact color list
-    st.markdown('<div id="color-scroll-anchor"></div>', unsafe_allow_html=True)
-    
     if ui_groups:
+        # Create columns for each color group
         cols = st.columns(len(ui_groups))
         for idx, (color, data) in enumerate(ui_groups.items()):
             with cols[idx]:
@@ -255,39 +251,31 @@ if st.session_state.batches:
                     for b_id, all_files in data['instances'].items():
                         st.caption(f"**Instance {b_id}:** {', '.join(all_files)}")
                         
-        # BULLETPROOF HORIZONTAL SCROLL HACK:
-        # Executes background JavaScript to forcefully rewrite the layout of the columns above
+        # Dedicated JS Container Scroll Enforcement
         st.components.v1.html("""
             <script>
                 const doc = window.parent.document;
-                const anchor = doc.getElementById('color-scroll-anchor');
-                if (anchor) {
-                    // Navigate up the DOM to find the exact container holding the columns
-                    let currentNode = anchor;
-                    let horizontalBlock = null;
-                    
-                    while (currentNode && currentNode.tagName !== 'BODY') {
-                        if (currentNode.nextElementSibling && currentNode.nextElementSibling.getAttribute('data-testid') === 'stHorizontalBlock') {
-                            horizontalBlock = currentNode.nextElementSibling;
-                            break;
-                        }
-                        currentNode = currentNode.parentElement;
-                    }
+                // Find all popovers representing the color cards
+                const popovers = doc.querySelectorAll('[data-testid="stPopover"]');
+                if (popovers.length > 0) {
+                    let block = popovers[0].closest('[data-testid="stHorizontalBlock"]');
+                    if (block) {
+                        // Force true horizontal scrolling layout
+                        block.style.setProperty('display', 'flex', 'important');
+                        block.style.setProperty('flex-wrap', 'nowrap', 'important');
+                        block.style.setProperty('overflow-x', 'auto', 'important');
+                        block.style.setProperty('width', '100%', 'important');
+                        block.style.setProperty('gap', '16px', 'important');
+                        block.style.setProperty('padding-bottom', '15px', 'important');
 
-                    // Apply rigid layout rules to force the scrollbar
-                    if (horizontalBlock) {
-                        horizontalBlock.style.setProperty('overflow-x', 'auto', 'important');
-                        horizontalBlock.style.setProperty('flex-wrap', 'nowrap', 'important');
-                        horizontalBlock.style.setProperty('display', 'flex', 'important');
-                        horizontalBlock.style.setProperty('padding-bottom', '15px', 'important');
-                        
-                        const columns = horizontalBlock.querySelectorAll('[data-testid="column"]');
-                        columns.forEach(col => {
-                            col.style.setProperty('min-width', '160px', 'important');
-                            col.style.setProperty('max-width', '160px', 'important');
-                            col.style.setProperty('width', '160px', 'important');
-                            col.style.setProperty('flex', '0 0 160px', 'important');
-                            col.style.setProperty('background-color', 'rgba(128,128,128,0.08)', 'important');
+                        // Style each individual card to a fixed 150px width without shrinking
+                        const cols = block.querySelectorAll(':scope > [data-testid="column"]');
+                        cols.forEach(col => {
+                            col.style.setProperty('flex', '0 0 150px', 'important');
+                            col.style.setProperty('min-width', '150px', 'important');
+                            col.style.setProperty('max-width', '150px', 'important');
+                            col.style.setProperty('width', '150px', 'important');
+                            col.style.setProperty('background-color', 'rgba(128, 128, 128, 0.08)', 'important');
                             col.style.setProperty('padding', '12px', 'important');
                             col.style.setProperty('border-radius', '8px', 'important');
                             col.style.setProperty('text-align', 'center', 'important');
