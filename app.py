@@ -161,20 +161,19 @@ st.markdown("""
         flex-direction: column !important;
         align-items: center !important;
         justify-content: center !important;
-        gap: 12px !important; 
-        margin: 0 auto !important; /* Guarantees true horizontal centering */
-        padding: 0 !important;
-    }
-
-    /* Strip all residual margins from children elements */
-    [data-testid="stFileUploaderDropzone"] > div > * {
-        margin: 0 !important;
+        width: 100% !important;
+        text-align: center !important;
     }
 
     /* Target the flavor text specifically to ensure it centers */
     [data-testid="stFileUploaderDropzone"] small {
         text-align: center !important;
         line-height: 1 !important;
+    }
+    
+    /* Force the upload button to auto-margin horizontally just in case */
+    [data-testid="stFileUploaderDropzone"] button {
+        margin: 0 auto !important;
     }
 
     /* --- 3. Undo/Clear Buttons Alignment --- */
