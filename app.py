@@ -207,7 +207,7 @@ with st.expander("⚙️ Optical Text Search Parameters (Advanced)"):
         interval_wl = st.number_input("Interval (nm)", value=10, step=5)
 
 # --- Upload & Queue Management Row ---
-col_upload, col_buttons = st.columns([3, 2])
+col_upload, col_buttons = st.columns([3, 1])
 
 with col_upload:
     st.file_uploader(
