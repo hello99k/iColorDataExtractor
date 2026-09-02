@@ -122,36 +122,61 @@ def extract_data_from_image(image_bytes, start_wl, end_wl, interval):
 
 st.set_page_config(page_title="Spectra Batch Extractor", layout="wide")
 
-# Custom CSS for rigid layout alignment
 st.markdown("""
     <style>
-    /* --- 1. Horizontal Scroll for Queued Colors --- */
-    .color-scroll-anchor + div[data-testid="stHorizontalBlock"] {
-        overflow-x: auto;
-        flex-wrap: nowrap;
-        padding-bottom: 10px;
-    }
-    .color-scroll-anchor + div[data-testid="stHorizontalBlock"] [data-testid="column"] {
-        min-width: 140px !important;
-        background-color: rgba(128, 128, 128, 0.05);
-        padding: 10px;
-        border-radius: 8px;
-        text-align: center;
+    /* --- 1. True Horizontal Scrolling for Queued Colors --- */
+    /* Target the container holding the color cards */
+    div[data-testid="stHorizontalBlock"]:has([data-testid="stPopover"]) {
+        overflow-x: auto !important;
+        flex-wrap: nowrap !important;
+        display: flex !important;
+        gap: 16px !important;
+        padding-top: 4px !important;
+        padding-bottom: 14px !important;
+        scrollbar-width: thin;
     }
 
-    /* --- 2. Uploader Pixel-Perfect Centering --- */
+    /* Prevent the color cards from shrinking and force horizontal overflow */
+    div[data-testid="stHorizontalBlock"]:has([data-testid="stPopover"]) > div[data-testid="column"] {
+        flex: 0 0 160px !important;
+        min-width: 160px !important;
+        max-width: 160px !important;
+        background-color: rgba(128, 128, 128, 0.08) !important;
+        padding: 12px !important;
+        border-radius: 8px !important;
+        text-align: center !important;
+    }
+
+    /* Style the popover button inside each card */
+    div[data-testid="stHorizontalBlock"]:has([data-testid="stPopover"]) [data-testid="stPopover"],
+    div[data-testid="stHorizontalBlock"]:has([data-testid="stPopover"]) [data-testid="stPopover"] button {
+        width: 100% !important;
+    }
+
+    /* Custom scrollbar styling */
+    div[data-testid="stHorizontalBlock"]:has([data-testid="stPopover"])::-webkit-scrollbar {
+        height: 8px;
+    }
+    div[data-testid="stHorizontalBlock"]:has([data-testid="stPopover"])::-webkit-scrollbar-thumb {
+        background: rgba(128, 128, 128, 0.35);
+        border-radius: 4px;
+    }
+    div[data-testid="stHorizontalBlock"]:has([data-testid="stPopover"])::-webkit-scrollbar-track {
+        background: rgba(128, 128, 128, 0.08);
+        border-radius: 4px;
+    }
+
+    /* --- 2. Uploader Centering with Emoji --- */
     [data-testid="stFileUploader"] label {
         display: none !important;
     }
     
-    /* Lock the dropzone box to exactly 216px height */
     [data-testid="stFileUploaderDropzone"] {
         height: 216px !important; 
         min-height: 216px !important; 
         padding: 0 !important;
     }
     
-    /* Force the inner wrapper to fill the 216px height and center its children */
     [data-testid="stFileUploaderDropzone"] > div {
         height: 100% !important;
         display: flex !important;
@@ -160,22 +185,20 @@ st.markdown("""
         justify-content: center !important;
     }
     
-    /* Completely hide the default button, icon, and default text */
     [data-testid="stFileUploaderDropzone"] button,
     [data-testid="stFileUploaderDropzone"] svg,
     [data-testid="stFileUploaderDropzone"] > div > span {
         display: none !important;
     }
 
-    /* Inject 'Upload' as bold text dead center above the flavor text */
+    /* Injects emoji + bold text in the center */
     [data-testid="stFileUploaderDropzone"] > div::before {
-        content: "Upload";
+        content: "📤 Upload";
         font-weight: 600;
         font-size: 1.25rem;
         margin-bottom: 8px;
     }
 
-    /* Ensure the subtext is perfectly centered */
     [data-testid="stFileUploaderDropzone"] small {
         margin: 0 !important;
         text-align: center !important;
@@ -234,7 +257,6 @@ ui_groups = {}
 total_files = 0
 
 if st.session_state.batches:
-    # Parse current queue to group by Color
     for batch in st.session_state.batches:
         b_id = batch['batch_id']
         all_files_in_instance = [f['name'] for f in batch['files']]
@@ -255,7 +277,6 @@ if st.session_state.batches:
                 if b_id not in ui_groups[color]['instances']:
                     ui_groups[color]['instances'][b_id] = all_files_in_instance
 
-    st.markdown('<div class="color-scroll-anchor"></div>', unsafe_allow_html=True)
     if ui_groups:
         cols = st.columns(len(ui_groups))
         for idx, (color, data) in enumerate(ui_groups.items()):
