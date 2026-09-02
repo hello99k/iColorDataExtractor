@@ -144,7 +144,7 @@ st.markdown("""
         display: none !important;
     }
     
-    /* Lock the dropzone box to exactly 216px height to match two 100px buttons + 16px gap */
+    /* Lock the dropzone box to exactly 216px height */
     [data-testid="stFileUploaderDropzone"] {
         height: 216px !important; 
         min-height: 216px !important; 
@@ -160,24 +160,33 @@ st.markdown("""
         justify-content: center !important;
     }
     
-    /* Ensure the button is properly spaced and centered */
-    [data-testid="stFileUploaderDropzone"] button {
-        margin: 0 auto 12px auto !important; 
+    /* Completely hide the default button, icon, and default text */
+    [data-testid="stFileUploaderDropzone"] button,
+    [data-testid="stFileUploaderDropzone"] svg,
+    [data-testid="stFileUploaderDropzone"] > div > span {
+        display: none !important;
+    }
+
+    /* Inject 'Upload' as bold text dead center above the flavor text */
+    [data-testid="stFileUploaderDropzone"] > div::before {
+        content: "Upload";
+        font-weight: 600;
+        font-size: 1.25rem;
+        margin-bottom: 8px;
     }
 
     /* Ensure the subtext is perfectly centered */
     [data-testid="stFileUploaderDropzone"] small {
-        margin: 0 auto !important;
+        margin: 0 !important;
         text-align: center !important;
     }
 
     /* --- 3. Undo/Clear Buttons Alignment --- */
-    /* Aggressive targeting: Grabs the 2nd column in the layout and forces button height */
     div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) div[data-testid="stButton"] button {
         height: 100px !important; 
         min-height: 100px !important; 
-        justify-content: flex-start !important; /* Pushes text to the left */
-        padding-left: 24px !important; /* Adds padding so it doesn't hug the border */
+        justify-content: flex-start !important; 
+        padding-left: 24px !important; 
         width: 100% !important;
         margin: 0 !important;
     }
