@@ -144,52 +144,40 @@ st.markdown("""
         display: none !important;
     }
     
-    /* Lock the dropzone box to exactly 216px height */
+    /* Lock the dropzone box to exactly 216px height to match two 100px buttons + 16px gap */
     [data-testid="stFileUploaderDropzone"] {
         height: 216px !important; 
         min-height: 216px !important; 
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        justify-content: center !important;
         padding: 0 !important;
     }
     
-    /* Override Streamlit's inner layout layers to force vertical stacking */
-    [data-testid="stFileUploaderDropzone"] div, 
-    [data-testid="stFileUploaderDropzone"] span {
+    /* Force the inner wrapper to fill the 216px height and center its children */
+    [data-testid="stFileUploaderDropzone"] > div {
+        height: 100% !important;
         display: flex !important;
         flex-direction: column !important;
         align-items: center !important;
         justify-content: center !important;
-        width: 100% !important;
     }
     
-    /* Exempt the button's internal structure so the icon and text remain side-by-side */
-    [data-testid="stFileUploaderDropzone"] button div, 
-    [data-testid="stFileUploaderDropzone"] button span {
-        display: flex !important;
-        flex-direction: row !important;
-        width: auto !important;
-    }
-
-    /* Force the button element into the dead center */
+    /* Ensure the button is properly spaced and centered */
     [data-testid="stFileUploaderDropzone"] button {
-        align-self: center !important;
-        margin: 0 auto 12px auto !important;
+        margin: 0 auto 12px auto !important; 
     }
 
+    /* Ensure the subtext is perfectly centered */
     [data-testid="stFileUploaderDropzone"] small {
+        margin: 0 auto !important;
         text-align: center !important;
-        width: 100% !important;
     }
 
     /* --- 3. Undo/Clear Buttons Alignment --- */
+    /* Aggressive targeting: Grabs the 2nd column in the layout and forces button height */
     div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) div[data-testid="stButton"] button {
         height: 100px !important; 
         min-height: 100px !important; 
-        justify-content: flex-start !important; 
-        padding-left: 24px !important; 
+        justify-content: flex-start !important; /* Pushes text to the left */
+        padding-left: 24px !important; /* Adds padding so it doesn't hug the border */
         width: 100% !important;
         margin: 0 !important;
     }
