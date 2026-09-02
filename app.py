@@ -124,49 +124,7 @@ st.set_page_config(page_title="Spectra Batch Extractor", layout="wide")
 
 st.markdown("""
     <style>
-    /* --- 1. True Horizontal Scrolling for Queued Colors --- */
-    /* Target the container holding the color cards */
-    div[data-testid="stHorizontalBlock"]:has([data-testid="stPopover"]) {
-        overflow-x: auto !important;
-        flex-wrap: nowrap !important;
-        display: flex !important;
-        gap: 16px !important;
-        padding-top: 4px !important;
-        padding-bottom: 14px !important;
-        scrollbar-width: thin;
-    }
-
-    /* Prevent the color cards from shrinking and force horizontal overflow */
-    div[data-testid="stHorizontalBlock"]:has([data-testid="stPopover"]) > div[data-testid="column"] {
-        flex: 0 0 160px !important;
-        min-width: 160px !important;
-        max-width: 160px !important;
-        background-color: rgba(128, 128, 128, 0.08) !important;
-        padding: 12px !important;
-        border-radius: 8px !important;
-        text-align: center !important;
-    }
-
-    /* Style the popover button inside each card */
-    div[data-testid="stHorizontalBlock"]:has([data-testid="stPopover"]) [data-testid="stPopover"],
-    div[data-testid="stHorizontalBlock"]:has([data-testid="stPopover"]) [data-testid="stPopover"] button {
-        width: 100% !important;
-    }
-
-    /* Custom scrollbar styling */
-    div[data-testid="stHorizontalBlock"]:has([data-testid="stPopover"])::-webkit-scrollbar {
-        height: 8px;
-    }
-    div[data-testid="stHorizontalBlock"]:has([data-testid="stPopover"])::-webkit-scrollbar-thumb {
-        background: rgba(128, 128, 128, 0.35);
-        border-radius: 4px;
-    }
-    div[data-testid="stHorizontalBlock"]:has([data-testid="stPopover"])::-webkit-scrollbar-track {
-        background: rgba(128, 128, 128, 0.08);
-        border-radius: 4px;
-    }
-
-    /* --- 2. Uploader Centering with Emoji --- */
+    /* --- 1. Uploader Centering with Emoji --- */
     [data-testid="stFileUploader"] label {
         display: none !important;
     }
@@ -185,13 +143,14 @@ st.markdown("""
         justify-content: center !important;
     }
     
+    /* Hide the original button entirely */
     [data-testid="stFileUploaderDropzone"] button,
     [data-testid="stFileUploaderDropzone"] svg,
     [data-testid="stFileUploaderDropzone"] > div > span {
         display: none !important;
     }
 
-    /* Injects emoji + bold text in the center */
+    /* Inject 'Upload' as bold text with emoji directly in the center */
     [data-testid="stFileUploaderDropzone"] > div::before {
         content: "📤 Upload";
         font-weight: 600;
@@ -204,7 +163,7 @@ st.markdown("""
         text-align: center !important;
     }
 
-    /* --- 3. Undo/Clear Buttons Alignment --- */
+    /* --- 2. Undo/Clear Buttons Alignment --- */
     div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) div[data-testid="stButton"] button {
         height: 100px !important; 
         min-height: 100px !important; 
@@ -277,6 +236,9 @@ if st.session_state.batches:
                 if b_id not in ui_groups[color]['instances']:
                     ui_groups[color]['instances'][b_id] = all_files_in_instance
 
+    # Invisible anchor used by our Javascript to find the exact color list
+    st.markdown('<div id="color-scroll-anchor"></div>', unsafe_allow_html=True)
+    
     if ui_groups:
         cols = st.columns(len(ui_groups))
         for idx, (color, data) in enumerate(ui_groups.items()):
@@ -292,6 +254,48 @@ if st.session_state.batches:
                     st.caption("📦 **Full Instance Upload History:**")
                     for b_id, all_files in data['instances'].items():
                         st.caption(f"**Instance {b_id}:** {', '.join(all_files)}")
+                        
+        # BULLETPROOF HORIZONTAL SCROLL HACK:
+        # Executes background JavaScript to forcefully rewrite the layout of the columns above
+        st.components.v1.html("""
+            <script>
+                const doc = window.parent.document;
+                const anchor = doc.getElementById('color-scroll-anchor');
+                if (anchor) {
+                    // Navigate up the DOM to find the exact container holding the columns
+                    let currentNode = anchor;
+                    let horizontalBlock = null;
+                    
+                    while (currentNode && currentNode.tagName !== 'BODY') {
+                        if (currentNode.nextElementSibling && currentNode.nextElementSibling.getAttribute('data-testid') === 'stHorizontalBlock') {
+                            horizontalBlock = currentNode.nextElementSibling;
+                            break;
+                        }
+                        currentNode = currentNode.parentElement;
+                    }
+
+                    // Apply rigid layout rules to force the scrollbar
+                    if (horizontalBlock) {
+                        horizontalBlock.style.setProperty('overflow-x', 'auto', 'important');
+                        horizontalBlock.style.setProperty('flex-wrap', 'nowrap', 'important');
+                        horizontalBlock.style.setProperty('display', 'flex', 'important');
+                        horizontalBlock.style.setProperty('padding-bottom', '15px', 'important');
+                        
+                        const columns = horizontalBlock.querySelectorAll('[data-testid="column"]');
+                        columns.forEach(col => {
+                            col.style.setProperty('min-width', '160px', 'important');
+                            col.style.setProperty('max-width', '160px', 'important');
+                            col.style.setProperty('width', '160px', 'important');
+                            col.style.setProperty('flex', '0 0 160px', 'important');
+                            col.style.setProperty('background-color', 'rgba(128,128,128,0.08)', 'important');
+                            col.style.setProperty('padding', '12px', 'important');
+                            col.style.setProperty('border-radius', '8px', 'important');
+                            col.style.setProperty('text-align', 'center', 'important');
+                        });
+                    }
+                }
+            </script>
+        """, height=0)
     else:
         st.info("Files uploaded, but none match the required 'Color Material' naming format.")
 else:
