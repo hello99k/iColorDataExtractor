@@ -7,6 +7,7 @@ import re
 import io
 import zipfile
 import os
+import base64
 
 # --- Session State Management ---
 if "batches" not in st.session_state:
@@ -24,6 +25,13 @@ def reset_processing_state():
     """Clears the generated Excel file if the queue is modified."""
     st.session_state.is_processed = False
     st.session_state.excel_data = None
+
+def get_base64_of_bin_file(filename):
+    """Loads a file into base64 for CSS injection."""
+    if os.path.exists(filename):
+        with open(filename, 'rb') as f:
+            return base64.b64encode(f.read()).decode()
+    return None
 
 def handle_upload():
     """Callback to process files immediately when uploaded and queue them."""
@@ -122,68 +130,99 @@ def extract_data_from_image(image_bytes, start_wl, end_wl, interval):
 
 st.set_page_config(page_title="Spectra Batch Extractor", layout="wide")
 
-st.markdown("""
+# Load Custom Font
+font_medium_b64 = get_base64_of_bin_file("NeueHaasDisplayMediu.ttf")
+font_css = ""
+if font_medium_b64:
+    font_css = f"""
+    @font-face {{
+        font-family: 'NeueHaas';
+        src: url(data:font/truetype;base64,{font_medium_b64}) format('truetype');
+        font-weight: normal;
+        font-style: normal;
+    }}
+
+    html, body, p, span, div, h1, h2, h3, h4, h5, h6,
+    .stApp, .stButton, .stSelectbox, .stMarkdown, 
+    .stExpander, .stSlider, .stTextInput, .stMultiSelect,
+    .stMetric, .stRadio, .stMarkdown h1, .stMarkdown h2, 
+    .stMarkdown h3, .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {{
+        font-family: 'NeueHaas', sans-serif !important;
+        font-weight: normal !important;
+    }}
+
+    .material-symbols-rounded, 
+    .material-symbols-outlined, 
+    .material-icons, 
+    [data-testid="stIconMaterial"] {{
+        font-family: "Material Symbols Rounded", "Material Icons" !important;
+    }}
+    """
+
+st.markdown(f"""
     <style>
+    {font_css}
+    
     /* --- 1. Scoped Card Styling for Queued Colors --- */
-    .color-cards-row + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+    .color-cards-row + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {{
         background-color: rgba(128, 128, 128, 0.08) !important;
         padding: 12px !important;
         border-radius: 8px !important;
         text-align: center !important;
         min-width: 150px !important;
-    }
+    }}
 
     .color-cards-row + div[data-testid="stHorizontalBlock"] [data-testid="stPopover"],
-    .color-cards-row + div[data-testid="stHorizontalBlock"] [data-testid="stPopover"] button {
+    .color-cards-row + div[data-testid="stHorizontalBlock"] [data-testid="stPopover"] button {{
         width: 100% !important;
-    }
+    }}
 
     /* --- 2. Uploader Centering with Emoji --- */
-    [data-testid="stFileUploader"] label {
+    [data-testid="stFileUploader"] label {{
         display: none !important;
-    }
+    }}
     
-    [data-testid="stFileUploaderDropzone"] {
+    [data-testid="stFileUploaderDropzone"] {{
         height: 216px !important; 
         min-height: 216px !important; 
         padding: 0 !important;
-    }
+    }}
     
-    [data-testid="stFileUploaderDropzone"] > div {
+    [data-testid="stFileUploaderDropzone"] > div {{
         height: 100% !important;
         display: flex !important;
         flex-direction: column !important;
         align-items: center !important;
         justify-content: center !important;
-    }
+    }}
     
     [data-testid="stFileUploaderDropzone"] button,
     [data-testid="stFileUploaderDropzone"] svg,
-    [data-testid="stFileUploaderDropzone"] > div > span {
+    [data-testid="stFileUploaderDropzone"] > div > span {{
         display: none !important;
-    }
+    }}
 
-    [data-testid="stFileUploaderDropzone"] > div::before {
+    [data-testid="stFileUploaderDropzone"] > div::before {{
         content: "📤 Upload";
         font-weight: 600;
         font-size: 1.25rem;
         margin-bottom: 8px;
-    }
+    }}
 
-    [data-testid="stFileUploaderDropzone"] small {
+    [data-testid="stFileUploaderDropzone"] small {{
         margin: 0 !important;
         text-align: center !important;
-    }
+    }}
 
     /* --- 3. Undo/Clear Buttons Alignment --- */
-    div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) div[data-testid="stButton"] button {
+    div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) div[data-testid="stButton"] button {{
         height: 100px !important; 
         min-height: 100px !important; 
         justify-content: flex-start !important; 
         padding-left: 24px !important; 
         width: 100% !important;
         margin: 0 !important;
-    }
+    }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -256,7 +295,6 @@ if st.session_state.batches:
             with cols[idx]:
                 st.markdown(f"**{color}**")
                 
-                # Capitalized 'Materials' for the button label
                 with st.popover(f"{len(data['relevant'])} Materials"):
                     st.write(f"**Relevant '{color}' Files:**")
                     for rf in sorted(data['relevant']):
@@ -265,11 +303,11 @@ if st.session_state.batches:
                     st.divider()
                     st.caption("📦 **Full Instance Upload History:**")
                     
-                    # Converted instance history into clickable drop-downs (expanders)
                     for b_id, all_files in data['instances'].items():
                         with st.expander(f"Instance {b_id} ({len(all_files)} files)"):
-                            for inst_file in all_files:
-                                st.caption(f"- `{inst_file}`")
+                            # Commma delineated file names for max density
+                            files_str = ", ".join([f"`{f}`" for f in all_files])
+                            st.caption(files_str)
     else:
         st.info("Files uploaded, but none match the required 'Color Material' naming format.")
 else:
