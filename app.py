@@ -33,8 +33,31 @@ def get_base64_of_bin_file(filename):
             return base64.b64encode(f.read()).decode()
     return None
 
+def is_valid_spectra_image(image_bytes):
+    """Screens an image during upload to check if it contains the WL and % table headers."""
+    file_bytes = np.asarray(bytearray(image_bytes), dtype=np.uint8)
+    img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+    
+    if img is None:
+        return False
+
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    height, width = gray.shape
+    left_panel = gray[:, :int(width * 0.10)] 
+    
+    left_panel = cv2.resize(left_panel, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
+    _, left_panel = cv2.threshold(left_panel, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+
+    custom_config = r'--oem 3 --psm 6'
+    text = pytesseract.image_to_string(left_panel, config=custom_config)
+    
+    if 'WL' not in text.upper() or '%' not in text:
+        return False
+        
+    return True
+
 def handle_upload():
-    """Callback to process files immediately when uploaded and queue them."""
+    """Callback to process, screen, and queue files immediately when uploaded."""
     upload_key = f"uploader_{st.session_state.uploader_key}"
     uploaded_files = st.session_state.get(upload_key)
     
@@ -42,6 +65,8 @@ def handle_upload():
         return
         
     current_batch = []
+    skipped_count = 0
+    
     for f in uploaded_files:
         if f.name.lower().endswith('.zip'):
             try:
@@ -50,17 +75,27 @@ def handle_upload():
                         if zip_info.is_dir() or zip_info.filename.startswith('__MACOSX') or os.path.basename(zip_info.filename).startswith('.'):
                             continue
                         if zip_info.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-                            current_batch.append({
-                                'name': os.path.basename(zip_info.filename),
-                                'bytes': zip_ref.read(zip_info.filename)
-                            })
+                            img_bytes = zip_ref.read(zip_info.filename)
+                            # Screen the image before queuing
+                            if is_valid_spectra_image(img_bytes):
+                                current_batch.append({
+                                    'name': os.path.basename(zip_info.filename),
+                                    'bytes': img_bytes
+                                })
+                            else:
+                                skipped_count += 1
             except Exception as e:
                 st.error(f"Failed to read ZIP file {f.name}: {e}")
         else:
-            current_batch.append({
-                'name': f.name,
-                'bytes': f.getvalue()
-            })
+            img_bytes = f.getvalue()
+            # Screen the image before queuing
+            if is_valid_spectra_image(img_bytes):
+                current_batch.append({
+                    'name': f.name,
+                    'bytes': img_bytes
+                })
+            else:
+                skipped_count += 1
     
     if current_batch:
         st.session_state.batches.append({
@@ -71,6 +106,9 @@ def handle_upload():
         reset_processing_state()
         
     st.session_state.uploader_key += 1
+    
+    if skipped_count > 0:
+        st.toast(f"Screened out {skipped_count} irrelevant files missing data tables.", icon="🗑️")
 
 def undo_last_upload():
     if st.session_state.batches:
@@ -85,7 +123,7 @@ def clear_all_uploads():
     reset_processing_state()
 
 def extract_data_from_image(image_bytes, start_wl, end_wl, interval):
-    """Decodes image, validates it is a spectra screenshot, and extracts the table."""
+    """Decodes image and extracts the table."""
     file_bytes = np.asarray(bytearray(image_bytes), dtype=np.uint8)
     img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
     
