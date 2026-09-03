@@ -125,16 +125,14 @@ st.set_page_config(page_title="Spectra Batch Extractor", layout="wide")
 st.markdown("""
     <style>
     /* --- 1. Scoped Card Styling for Queued Colors --- */
-    /* Target only the columns row immediately following our anchor */
     .color-cards-row + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
         background-color: rgba(128, 128, 128, 0.08) !important;
         padding: 12px !important;
         border-radius: 8px !important;
         text-align: center !important;
-        min-width: 150px !important; /* Forces cards to stay wide, triggering native horizontal scroll */
+        min-width: 150px !important;
     }
 
-    /* Make the popover buttons fill the card width */
     .color-cards-row + div[data-testid="stHorizontalBlock"] [data-testid="stPopover"],
     .color-cards-row + div[data-testid="stHorizontalBlock"] [data-testid="stPopover"] button {
         width: 100% !important;
@@ -159,14 +157,12 @@ st.markdown("""
         justify-content: center !important;
     }
     
-    /* Hide the original button entirely */
     [data-testid="stFileUploaderDropzone"] button,
     [data-testid="stFileUploaderDropzone"] svg,
     [data-testid="stFileUploaderDropzone"] > div > span {
         display: none !important;
     }
 
-    /* Inject 'Upload' as bold text with emoji directly in the center */
     [data-testid="stFileUploaderDropzone"] > div::before {
         content: "📤 Upload";
         font-weight: 600;
@@ -252,25 +248,28 @@ if st.session_state.batches:
                 if b_id not in ui_groups[color]['instances']:
                     ui_groups[color]['instances'][b_id] = all_files_in_instance
 
-    # Invisible anchor to apply the CSS styling ONLY to this specific row of columns
     st.markdown('<div class="color-cards-row"></div>', unsafe_allow_html=True)
     
     if ui_groups:
-        # NEW IN STREAMLIT: wrap=False creates a native horizontal scrollbar automatically!
         cols = st.columns(len(ui_groups), wrap=False)
         for idx, (color, data) in enumerate(ui_groups.items()):
             with cols[idx]:
                 st.markdown(f"**{color}**")
                 
-                with st.popover(f"{len(data['relevant'])} materials"):
+                # Capitalized 'Materials' for the button label
+                with st.popover(f"{len(data['relevant'])} Materials"):
                     st.write(f"**Relevant '{color}' Files:**")
                     for rf in sorted(data['relevant']):
                         st.write(f"- `{rf}`")
                     
                     st.divider()
                     st.caption("📦 **Full Instance Upload History:**")
+                    
+                    # Converted instance history into clickable drop-downs (expanders)
                     for b_id, all_files in data['instances'].items():
-                        st.caption(f"**Instance {b_id}:** {', '.join(all_files)}")
+                        with st.expander(f"Instance {b_id} ({len(all_files)} files)"):
+                            for inst_file in all_files:
+                                st.caption(f"- `{inst_file}`")
     else:
         st.info("Files uploaded, but none match the required 'Color Material' naming format.")
 else:
