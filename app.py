@@ -124,7 +124,23 @@ st.set_page_config(page_title="Spectra Batch Extractor", layout="wide")
 
 st.markdown("""
     <style>
-    /* --- 1. Uploader Centering with Emoji --- */
+    /* --- 1. Scoped Card Styling for Queued Colors --- */
+    /* Target only the columns row immediately following our anchor */
+    .color-cards-row + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+        background-color: rgba(128, 128, 128, 0.08) !important;
+        padding: 12px !important;
+        border-radius: 8px !important;
+        text-align: center !important;
+        min-width: 150px !important; /* Forces cards to stay wide, triggering native horizontal scroll */
+    }
+
+    /* Make the popover buttons fill the card width */
+    .color-cards-row + div[data-testid="stHorizontalBlock"] [data-testid="stPopover"],
+    .color-cards-row + div[data-testid="stHorizontalBlock"] [data-testid="stPopover"] button {
+        width: 100% !important;
+    }
+
+    /* --- 2. Uploader Centering with Emoji --- */
     [data-testid="stFileUploader"] label {
         display: none !important;
     }
@@ -143,12 +159,14 @@ st.markdown("""
         justify-content: center !important;
     }
     
+    /* Hide the original button entirely */
     [data-testid="stFileUploaderDropzone"] button,
     [data-testid="stFileUploaderDropzone"] svg,
     [data-testid="stFileUploaderDropzone"] > div > span {
         display: none !important;
     }
 
+    /* Inject 'Upload' as bold text with emoji directly in the center */
     [data-testid="stFileUploaderDropzone"] > div::before {
         content: "📤 Upload";
         font-weight: 600;
@@ -161,7 +179,7 @@ st.markdown("""
         text-align: center !important;
     }
 
-    /* --- 2. Undo/Clear Buttons Alignment --- */
+    /* --- 3. Undo/Clear Buttons Alignment --- */
     div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) div[data-testid="stButton"] button {
         height: 100px !important; 
         min-height: 100px !important; 
@@ -234,9 +252,12 @@ if st.session_state.batches:
                 if b_id not in ui_groups[color]['instances']:
                     ui_groups[color]['instances'][b_id] = all_files_in_instance
 
+    # Invisible anchor to apply the CSS styling ONLY to this specific row of columns
+    st.markdown('<div class="color-cards-row"></div>', unsafe_allow_html=True)
+    
     if ui_groups:
-        # Create columns for each color group
-        cols = st.columns(len(ui_groups))
+        # NEW IN STREAMLIT: wrap=False creates a native horizontal scrollbar automatically!
+        cols = st.columns(len(ui_groups), wrap=False)
         for idx, (color, data) in enumerate(ui_groups.items()):
             with cols[idx]:
                 st.markdown(f"**{color}**")
@@ -250,40 +271,6 @@ if st.session_state.batches:
                     st.caption("📦 **Full Instance Upload History:**")
                     for b_id, all_files in data['instances'].items():
                         st.caption(f"**Instance {b_id}:** {', '.join(all_files)}")
-                        
-        # Dedicated JS Container Scroll Enforcement
-        st.components.v1.html("""
-            <script>
-                const doc = window.parent.document;
-                // Find all popovers representing the color cards
-                const popovers = doc.querySelectorAll('[data-testid="stPopover"]');
-                if (popovers.length > 0) {
-                    let block = popovers[0].closest('[data-testid="stHorizontalBlock"]');
-                    if (block) {
-                        // Force true horizontal scrolling layout
-                        block.style.setProperty('display', 'flex', 'important');
-                        block.style.setProperty('flex-wrap', 'nowrap', 'important');
-                        block.style.setProperty('overflow-x', 'auto', 'important');
-                        block.style.setProperty('width', '100%', 'important');
-                        block.style.setProperty('gap', '16px', 'important');
-                        block.style.setProperty('padding-bottom', '15px', 'important');
-
-                        // Style each individual card to a fixed 150px width without shrinking
-                        const cols = block.querySelectorAll(':scope > [data-testid="column"]');
-                        cols.forEach(col => {
-                            col.style.setProperty('flex', '0 0 150px', 'important');
-                            col.style.setProperty('min-width', '150px', 'important');
-                            col.style.setProperty('max-width', '150px', 'important');
-                            col.style.setProperty('width', '150px', 'important');
-                            col.style.setProperty('background-color', 'rgba(128, 128, 128, 0.08)', 'important');
-                            col.style.setProperty('padding', '12px', 'important');
-                            col.style.setProperty('border-radius', '8px', 'important');
-                            col.style.setProperty('text-align', 'center', 'important');
-                        });
-                    }
-                }
-            </script>
-        """, height=0)
     else:
         st.info("Files uploaded, but none match the required 'Color Material' naming format.")
 else:
